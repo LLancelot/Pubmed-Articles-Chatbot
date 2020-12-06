@@ -1,4 +1,7 @@
-/src/main/resources/data-xml/
-
+src/main/resources/data-xml/
+src/main/resources/data-output/
+src/main/resources/graphs/
+.DS_STORE
+622-chatbot.iml
 # Project exclude paths
 /target/
