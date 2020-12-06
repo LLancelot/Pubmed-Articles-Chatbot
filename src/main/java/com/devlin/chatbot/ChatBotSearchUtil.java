@@ -7,6 +7,10 @@ package com.devlin.chatbot;
  */
 
 import com.devlin.chatbot.chart.PlotChart;
+import com.mongodb.BasicDBObject;
+import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import org.apache.commons.io.FileUtils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Field;
@@ -51,7 +55,9 @@ public class ChatBotSearchUtil {
 
     protected final static int MAX_HIT = 100000;
 
-    public static HashMap<String, String> fileNameMap, sqlTableNameMap, historyResultMap, BruteForceQA, LuceneQA;
+    public static HashMap<String, String> fileNameMap, tableNameMap, historyResultMap, BruteForceQA, LuceneQA;
+
+    public static HashMap<String, MongoCollection<org.bson.Document>> mongoCollectionHashMap;
 
     public static Set<Map.Entry<String, String>> entrySet;
 
@@ -67,6 +73,13 @@ public class ChatBotSearchUtil {
 
     static Connection connection = null;
 
+    static MongoClient mongoClient = null;
+
+    static MongoDatabase mongoDatabase = null;
+
+    static MongoCollection<org.bson.Document> smallCol, mediumCol, largeCol = null;
+
+
     static {
         /*
             Initialize global variables: fileNameMap, sqlTableNameMap
@@ -75,10 +88,10 @@ public class ChatBotSearchUtil {
         fileNameMap.put("Small", "pubmed20n1333.xml");
         fileNameMap.put("Medium", "pubmed20n1016.xml");
         fileNameMap.put("Large", "pubmed20n1410.xml");
-        sqlTableNameMap = new HashMap<>();
-        sqlTableNameMap.put("Small", "Article1");
-        sqlTableNameMap.put("Medium", "Article2");
-        sqlTableNameMap.put("Large", "Article3");
+        tableNameMap = new HashMap<>();
+        tableNameMap.put("Small", "Article1");
+        tableNameMap.put("Medium", "Article2");
+        tableNameMap.put("Large", "Article3");
 
         BruteForceQA = new HashMap<>();
         LuceneQA = new HashMap<>();
@@ -110,6 +123,20 @@ public class ChatBotSearchUtil {
         }
     }
 
+    static {
+        mongoClient = new MongoClient(
+                "localhost", 27017
+        );
+        mongoDatabase = mongoClient.getDatabase("local_cs622");
+        smallCol = mongoDatabase.getCollection("Article1");
+        mediumCol = mongoDatabase.getCollection("Article2");
+        largeCol = mongoDatabase.getCollection("Article3");
+        mongoCollectionHashMap = new HashMap<>();
+        mongoCollectionHashMap.put("Small", smallCol);
+        mongoCollectionHashMap.put("Medium", mediumCol);
+        mongoCollectionHashMap.put("Large", largeCol);
+    }
+
     /**
      * @param year
      * @return if the string is a valid year
@@ -137,6 +164,36 @@ public class ChatBotSearchUtil {
             yLuceneTimeSeries.clear();
     }
 
+    public static void MongoDBParseXML(MongoCollection collection, File file) throws ParserConfigurationException, IOException, SAXException {
+        System.out.println(collection);
+        collection.drop();
+        ArrayList docs = new ArrayList<Document>();
+        // xml parse
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder builder = factory.newDocumentBuilder();
+        org.w3c.dom.Document document = builder.parse(file);
+        document.getDocumentElement().normalize();
+        NodeList nodeList = document.getElementsByTagName("PubmedArticle");
+        // iterate nodeList
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            Node node = nodeList.item(i);
+            if (node.getNodeType() == Node.ELEMENT_NODE) {
+                Element element = (Element) node;
+                List<String> titles = Arrays.asList(element.getElementsByTagName("ArticleTitle").item(0).getTextContent());
+                List<String> dates = Arrays.asList(element.getElementsByTagName("PubDate").item(0).getTextContent().substring(0,4));
+                for (int t = 0; t < titles.size(); t++) {
+                    for (int d = 0; d < dates.size(); d++) {
+                        org.bson.Document document1 = new org.bson.Document();
+                        document1.append("title", titles.get(t));
+                        document1.append("date", dates.get(d));
+                        docs.add(document1);
+                    }
+                }
+            }
+        }
+        collection.insertMany(docs);
+    }
+
     /**
      * This method is used in LuceneSearch to add lucene document
      *
@@ -161,7 +218,7 @@ public class ChatBotSearchUtil {
      * @throws SQLException
      */
     public static void MySQLInitTable(String fileType) throws SQLException {
-        String tableName = sqlTableNameMap.get(fileType);
+        String tableName = tableNameMap.get(fileType);
         connection.createStatement().execute("CREATE TABLE " + tableName + "(\n"
                 + "  id integer primary key auto_increment,\n"
                 + "  Title varchar(1000) not null,\n"
@@ -176,7 +233,7 @@ public class ChatBotSearchUtil {
      * @throws SQLException
      */
     public static void MySQLParseXML(String fileType) throws SQLException {
-        String tableName = sqlTableNameMap.get(fileType);
+        String tableName = tableNameMap.get(fileType);
         String fileName = fileNameMap.get(fileType);
         String curFilePath = "src/main/resources/data-xml/" + fileName;
         PreparedStatement statement = connection.prepareStatement("INSERT INTO " + tableName + "(" + "  Title, date)" + "VALUES(?, ?)");
@@ -184,7 +241,7 @@ public class ChatBotSearchUtil {
             // xml parse
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(new File(curFilePath));
+            org.w3c.dom.Document document = builder.parse(new File(curFilePath));
             document.getDocumentElement().normalize();
             NodeList nodeList = document.getElementsByTagName("PubmedArticle");
             // iterate node list
@@ -231,7 +288,7 @@ public class ChatBotSearchUtil {
         String searchYear = "";
         String startYear = "";
         String endYear = "";
-        String sqlTableName = ChatBotSearchUtil.sqlTableNameMap.get(fileType);
+        String sqlTableName = ChatBotSearchUtil.tableNameMap.get(fileType);
         String query = "";
         Statement statement = connection.createStatement();
         System.out.println(Arrays.asList(words));
@@ -267,8 +324,7 @@ public class ChatBotSearchUtil {
 //                return cacheHistResult;
             if (isValidYear(startYear) && isValidYear(endYear)) {
                 query = "SELECT COUNT(*) FROM " + sqlTableName +
-                        " where Title like '%" + searchWord +
-                        "%' and substr(Date, 1, 5) between '" + startYear + "' and '" + endYear + "'";
+                        " where REGEXP_LIKE(Title, \'" + searchWord + "\') and convert(substring(Date, 1, 4), SIGNED) between " + Integer.parseInt(startYear) + " and " + Integer.parseInt(endYear) + ";";
                 System.out.println(query);
                 ResultSet resultSet = statement.executeQuery(query);
                 String count = "";
@@ -417,7 +473,7 @@ public class ChatBotSearchUtil {
 //            cacheHistResult = searchCacheHist(searchWord, searchYear);
 //            if (!cacheHistResult.isEmpty())
 //                return cacheHistResult;
-
+            setStartTime();
             int paperCount = 0;
             if (isValidYear(searchYear)) {
                 for (int i = 0; i < article.getLength(); i++) {
@@ -441,6 +497,9 @@ public class ChatBotSearchUtil {
                                         element.getElementsByTagName("ArticleTitle").item(0).getTextContent().toLowerCase(),
                                         searchWord,
                                         element.getElementsByTagName("PubDate").item(0).getTextContent().toLowerCase());
+                                paperCount++;
+                                xCount.add(paperCount);
+                                yLuceneTimeSeries.add(getRunningTime());
                             }
                         }
                     }
@@ -455,14 +514,14 @@ public class ChatBotSearchUtil {
                 TopDocs docs = searcher.search(query, MAX_HIT);
                 ScoreDoc[] hits = docs.scoreDocs;
 
-                // Iterate Hits
-                setStartTime();
-                for (ScoreDoc hit : hits) {
-                    org.apache.lucene.document.Document document = searcher.doc(hit.doc);
-                    paperCount++;
-                    xCount.add(paperCount);
-                    yLuceneTimeSeries.add(getRunningTime());
-                }
+//                // Iterate Hits
+//                setStartTime();
+//                for (ScoreDoc hit : hits) {
+//                    org.apache.lucene.document.Document document = searcher.doc(hit.doc);
+//                    paperCount++;
+//                    xCount.add(paperCount);
+//                    yLuceneTimeSeries.add(getRunningTime());
+//                }
 //             display hits of docs
 //            System.out.println("Lucene search result:");
 //            System.out.println("Hits of " + searchWord + ": " + hits.length);
@@ -488,6 +547,7 @@ public class ChatBotSearchUtil {
 //            cacheHistResult = searchCacheHist(searchWord, startYear, endYear);
 //            if (!cacheHistResult.isEmpty())
 //                return cacheHistResult;
+            setStartTime();
             int paperCount = 0;
             if (isValidYear(startYear) && isValidYear(endYear)) {
                 for (int i = 0; i < article.getLength(); i++) {
@@ -504,7 +564,8 @@ public class ChatBotSearchUtil {
                                     contains(searchWord)) {
                                 String xmlYear = element.getElementsByTagName("PubDate").item(0).
                                         getTextContent().substring(0, 4);
-                                if (Integer.parseInt(startYear) <= Integer.parseInt(xmlYear) && Integer.parseInt(endYear) >= Integer.parseInt(xmlYear)) {
+                                if (Integer.parseInt(startYear) <= Integer.parseInt(xmlYear) && Integer.parseInt(endYear) >= Integer.parseInt(xmlYear))
+                                {
                                     addDocument(writer,
                                             element.getElementsByTagName("ArticleTitle").item(0).getTextContent().toLowerCase(),
                                             searchWord,
@@ -526,14 +587,14 @@ public class ChatBotSearchUtil {
                 TopDocs docs = searcher.search(query, MAX_HIT);
                 ScoreDoc[] hits = docs.scoreDocs;
 
-                // Iterate Hits
-                setStartTime();
-                for (ScoreDoc hit : hits) {
-                    org.apache.lucene.document.Document document = searcher.doc(hit.doc);
-                    paperCount++;
-                    xCount.add(paperCount);
-                    yLuceneTimeSeries.add(getRunningTime());
-                }
+//                // Iterate Hits
+//                setStartTime();
+//                for (ScoreDoc hit : hits) {
+//                    org.apache.lucene.document.Document document = searcher.doc(hit.doc);
+//                    paperCount++;
+//                    xCount.add(paperCount);
+//                    yLuceneTimeSeries.add(getRunningTime());
+//                }
 
                 res = "Articles count from year " + startYear + " to year " + endYear + " with word: " + searchWord + " is " + hits.length + ". (response time:" + getRunningTime() + " ms)";
 //                System.out.println(res);
@@ -552,6 +613,62 @@ public class ChatBotSearchUtil {
 
             } else
                 return INVALID_YEAR_WARNING;
+        }
+        return INVALID_QUERY_WARNING;
+    }
+
+    public static String doQueryMongo(String fileType, String searchContent) {
+        String res = "";
+        // Here it needs to deconstruct the searchContent.
+        List<String> words = Arrays.asList(searchContent.toLowerCase().split("\\s+"));
+        String searchWord = words.get(words.indexOf("search") + 1);
+        String searchYear = "";
+        String startYear = "";
+        String endYear = "";
+        MongoCollection<org.bson.Document> collection = mongoCollectionHashMap.get(fileType);
+
+        if (words.contains("in")) {
+            // query by year
+            setStartTime();
+            searchYear = words.get(words.indexOf("in") + 1);
+            if (isValidYear(searchYear)) {
+                BasicDBObject query = new BasicDBObject();
+                query.put("title", new BasicDBObject("$regex", searchWord).append("$options", "i"));
+                query.put("date", new BasicDBObject("$regex", searchYear).append("$options", "i"));
+                Iterator it = collection.find(query).iterator();
+                int paperCount = 0;
+                while (it.hasNext()) {
+                    it.next();
+                    paperCount++;
+                }
+                res = "The total counts in year " + searchYear + " with word: " + searchWord + " is " + paperCount + ". (response time:" + getRunningTime() + " ms)";
+                historyResultMap.put(searchContent, res);
+                return res;
+            } else
+                return INVALID_YEAR_WARNING;
+        }
+        else if (words.contains("from") && words.contains("to")) {
+            // query by year range
+            startYear = words.get(words.indexOf("from") + 1);
+            endYear = words.get(words.indexOf("to") + 1);
+            setStartTime();
+            if (isValidYear(startYear) && isValidYear(endYear)) {
+                BasicDBObject rangeQuery = new BasicDBObject();
+                rangeQuery.put("date", new BasicDBObject("" +
+                        "$gte", startYear).append("$lte", endYear));
+                rangeQuery.put("title", new BasicDBObject("$regex", searchWord).append("$options", "i"));
+                Iterator it = collection.find(rangeQuery).iterator();
+                int paperCount = 0;
+                while (it.hasNext()) {
+                    it.next();
+                    paperCount++;
+                }
+                res = "Articles count from year " + startYear + " to year " + endYear + " with word: " + searchWord + " is " + paperCount + ". (response time:" + getRunningTime() + " ms)";
+                historyResultMap.put(searchContent, res);
+                return res;
+            } else {
+                return INVALID_YEAR_WARNING;
+            }
         }
         return INVALID_QUERY_WARNING;
     }
@@ -597,4 +714,5 @@ public class ChatBotSearchUtil {
             }
         }
     }
+
 }

@@ -54,6 +54,16 @@ public class RequestController {
         return queryResult;
     }
 
+    @RequestMapping("/getMongoDB")
+    public String showMongoDBResult(
+            @RequestParam(value = "filetype", defaultValue = "Medium") String fileType,
+            @RequestParam(value = "searchMethod", defaultValue = "MongoDB") String searchMethod,
+            @RequestParam(value = "searchContent") String searchContent
+    ) throws SQLException {
+        String queryResult = ChatBotSearchUtil.doQueryMongo(fileType, searchContent);
+        return queryResult;
+    }
+
     @RequestMapping("/getSearchHistory")
     public String showSearchHistory() {
         return ChatBotSearchUtil.printHistory();
@@ -74,13 +84,4 @@ public class RequestController {
             StreamUtils.copy(inputStream, response.getOutputStream());
         }
     }
-//
-//    @RequestMapping("/getMongoDB")
-//    public Request showMongoDBResult(
-//            @RequestParam(value = "filetype", defaultValue = "Medium") String fileType,
-//            @RequestParam(value = "searchMethod", defaultValue = "MongoDB") String searchMethod,
-//            @RequestParam(value = "searchContent") String searchContent
-//    ) {return new Request("");}
-
-
 }
