@@ -15,6 +15,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.SQLException;
 
@@ -69,8 +70,8 @@ public class RequestController {
         return ChatBotSearchUtil.printHistory();
     }
 
-    @RequestMapping(value = "/image", method = RequestMethod.GET, produces = MediaType.IMAGE_JPEG_VALUE)
-    public void getImage(HttpServletRequest request, HttpServletResponse response,
+    @RequestMapping(value = "/image1", method = RequestMethod.GET, produces = MediaType.IMAGE_JPEG_VALUE)
+    public void getImage1(HttpServletRequest request, HttpServletResponse response,
                          @RequestParam(value = "filetype") String fileType,
                          @RequestParam(value = "searchContent") String searchContent)
             throws IOException {
@@ -78,6 +79,19 @@ public class RequestController {
         // check if image generates, then send response to bot
         File imgFile = new File("src/main/resources/graphs/BF-Lucene-Compare-"
                 + fileType + "-" + ".jpg");
+        if (imgFile.exists()) {
+            FileInputStream inputStream = new FileInputStream(imgFile);
+            response.setContentType(MediaType.IMAGE_JPEG_VALUE);
+            StreamUtils.copy(inputStream, response.getOutputStream());
+        }
+    }
+
+    @RequestMapping(value = "/image2", method = RequestMethod.GET, produces = MediaType.IMAGE_JPEG_VALUE)
+    public void getImage2(HttpServletRequest request, HttpServletResponse response,
+                          @RequestParam(value = "filetype") String fileType) throws IOException {
+        ChatBotSearchUtil.generateDBComboPlot();
+        // chech if image generates, then send response to bot
+        File imgFile = new File("src/main/resources/graphs/MySQL-Mongo-Compare-All.jpg");
         if (imgFile.exists()) {
             FileInputStream inputStream = new FileInputStream(imgFile);
             response.setContentType(MediaType.IMAGE_JPEG_VALUE);

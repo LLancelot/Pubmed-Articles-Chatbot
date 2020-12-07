@@ -8,6 +8,7 @@ import org.knowm.xchart.*;
 import org.knowm.xchart.demo.charts.ExampleChart;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import com.devlin.chatbot.ChatBotSearchUtil.*;
 
@@ -65,6 +66,16 @@ public class PlotChart implements ExampleChart<XYChart> {
         chart.addSeries("Lucene Search", xCount, yLuceneTimeSeries);
         return chart;
     }
+
+    public void getAndSaveDBComboChart(ArrayList<Integer> count, ArrayList<Double> MongoTime, ArrayList<Double> MySQLTime) throws IOException {
+        XYChart chart = new XYChartBuilder().width(800).height(600).title(getClass().getSimpleName()).xAxisTitle("Paper Count").yAxisTitle("Elapsed Time(ms)").build();
+        chart.setTitle("MySQL and MongoDB Query Performance with 3 Different Sizes");
+        // Add series
+        chart.addSeries("MongoDB", count, MongoTime);
+        chart.addSeries("MySQL", count, MySQLTime);
+        saveJPGWithQuality(chart, "src/main/resources/graphs/MySQL-Mongo-Compare-All.jpg", 1);
+    }
+
 
     @Override
     public XYChart getChart() {

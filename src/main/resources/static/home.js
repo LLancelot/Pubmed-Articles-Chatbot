@@ -196,10 +196,10 @@
                 addMessage: true,
                 // so we could the address in message instead if 'Existing Address'
                 action: [
-                //     {
-                //     text: 'MongoDB',
-                //     value: 'MongoDB'
-                // },
+                    {
+                    text: 'MongoDB',
+                    value: 'MongoDB'
+                },
                     {
                     text: 'MySQL',
                     value: 'MySQL'
@@ -233,7 +233,12 @@
             }).then(function(res) {
                 return botui.message.bot({
                     delay: 1000,
-                    content: '<img src="image?filetype=' + fileType + '&searchContent=' + searchContent + '">'
+                    content: '<img src="image1?filetype=' + fileType + '&searchContent=' + searchContent + '">'
+                }).then(function(res) {
+                    return botui.message.bot({
+                        delay: 1000,
+                        content: '<img src="image2?filetype=' + fileType + '">'
+                    })
                 }).then(init)
             })
         }

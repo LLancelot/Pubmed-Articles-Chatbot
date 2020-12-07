@@ -57,6 +57,10 @@ public class ChatBotSearchUtil {
 
     public static HashMap<String, String> fileNameMap, tableNameMap, historyResultMap, BruteForceQA, LuceneQA;
 
+    public static HashMap<String, Double> MongoQA, MySQLQA;
+
+    public static HashMap<String, Integer> MongoCount, MySQLCount;
+
     public static HashMap<String, MongoCollection<org.bson.Document>> mongoCollectionHashMap;
 
     public static Set<Map.Entry<String, String>> entrySet;
@@ -67,7 +71,7 @@ public class ChatBotSearchUtil {
 
     public static ArrayList<Integer> xCount;
 
-    public static ArrayList<Double> yBruteForceTimeSeries, yLuceneTimeSeries;
+    public static ArrayList<Double> yBruteForceTimeSeries, yLuceneTimeSeries, yMySQLRunTime, yMongoRunTime;
 
     public static PlotChart plotChart;
 
@@ -78,7 +82,6 @@ public class ChatBotSearchUtil {
     static MongoDatabase mongoDatabase = null;
 
     static MongoCollection<org.bson.Document> smallCol, mediumCol, largeCol = null;
-
 
     static {
         /*
@@ -95,6 +98,11 @@ public class ChatBotSearchUtil {
 
         BruteForceQA = new HashMap<>();
         LuceneQA = new HashMap<>();
+        MongoQA = new HashMap<>();
+        MySQLQA = new HashMap<>();
+        MongoCount = new HashMap<>();
+        MySQLCount = new HashMap<>();
+
 
         /*
             in historyResultMap, we need to store <key, value> as <userInput, queryResult>;
@@ -108,6 +116,8 @@ public class ChatBotSearchUtil {
         xCount = new ArrayList<>();
         yBruteForceTimeSeries = new ArrayList<>();
         yLuceneTimeSeries = new ArrayList<>();
+        yMySQLRunTime = new ArrayList<>();
+        yMongoRunTime = new ArrayList<>();
         plotChart = new PlotChart();
     }
 
@@ -162,6 +172,13 @@ public class ChatBotSearchUtil {
             yBruteForceTimeSeries.clear();
         else if (searchMethod.equals(KEYWORD.LUCENE_SEARCH))
             yLuceneTimeSeries.clear();
+    }
+
+    public static void resetDBXY(KEYWORD searchMethod) {
+        if (searchMethod.equals(KEYWORD.MONGODB))
+            yMongoRunTime.clear();
+        else if (searchMethod.equals(KEYWORD.MYSQL))
+            yMySQLRunTime.clear();
     }
 
     public static void MongoDBParseXML(MongoCollection collection, File file) throws ParserConfigurationException, IOException, SAXException {
@@ -294,7 +311,6 @@ public class ChatBotSearchUtil {
         System.out.println(Arrays.asList(words));
         if (words.contains("in")) {
             // query by year
-
             setStartTime();
             searchYear = words.get(words.indexOf("in") + 1);
 //            cacheHistResult = searchCacheHist(searchWord, searchYear);
@@ -303,14 +319,15 @@ public class ChatBotSearchUtil {
             if (isValidYear(searchYear)) {
                 query = "SELECT COUNT(*) FROM " + sqlTableName + " WHERE Title like '%" + searchWord +
                         "%' AND Date like '" + searchYear + "%'";
-//            System.out.println(searchWord);
-//            System.out.println(searchYear);
                 ResultSet resultSet = statement.executeQuery(query);
                 String count = "";
                 while (resultSet.next())
                     count = resultSet.getString(1);
-                res = "The total counts in year " + searchYear + " with word: " + searchWord + " is " + count + ". (response time:" + getRunningTime() + " ms)";
-                historyResultMap.put(searchContent, res);
+                double runTime = getRunningTime();
+                res = "The total counts in year " + searchYear + " with word: " + searchWord + " is " + count + ". (response time:" + runTime + " ms)";
+                MySQLQA.put(fileType, runTime);
+                MySQLCount.put(fileType, Integer.parseInt(count));
+                historyResultMap.put(searchContent + " (by MySQL)", res);
                 return res;
             } else
                 return INVALID_YEAR_WARNING;
@@ -330,8 +347,11 @@ public class ChatBotSearchUtil {
                 String count = "";
                 while (resultSet.next())
                     count = resultSet.getString(1);
-                res = "Articles count from year " + startYear + " to year " + endYear + " with word: " + searchWord + " is " + count + ". (response time:" + getRunningTime() + " ms)";
-                historyResultMap.put(searchContent, res);
+                double runTime = getRunningTime();
+                res = "Articles count from year " + startYear + " to year " + endYear + " with word: " + searchWord + " is " + count + ". (response time:" + runTime + " ms)";
+                MySQLQA.put(fileType, runTime);
+                MySQLCount.put(fileType, Integer.parseInt(count));
+                historyResultMap.put(searchContent+ " (by MySQL)", res);
                 return res;
             } else {
                 return INVALID_YEAR_WARNING;
@@ -392,7 +412,7 @@ public class ChatBotSearchUtil {
                 }
                 res = "The total counts in year " + searchYear + " with word: " + searchWord + " is " + paperCount + ". (time:" + getRunningTime() + " ms)";
                 BruteForceQA.put(fileType, searchContent);
-                historyResultMap.put(searchContent, res);
+                historyResultMap.put(searchContent+ " (by Brute Force)", res);
                 if (!xCount.isEmpty() && !yBruteForceTimeSeries.isEmpty()) {
                     plotChart.getAndSaveChart(fileType,
                             "BruteForceSearch",
@@ -435,7 +455,7 @@ public class ChatBotSearchUtil {
                 }
                 res = "Articles count from year " + startYear + " to year " + endYear + " with word: " + searchWord + " is " + paperCount + ". (time:" + getRunningTime() + " ms)";
                 BruteForceQA.put(fileType, searchContent);
-                historyResultMap.put(searchContent, res);
+                historyResultMap.put(searchContent+ " (by Brute Force)", res);
                 if (!xCount.isEmpty() && !yBruteForceTimeSeries.isEmpty()) {
                     plotChart.getAndSaveChart(fileType, "BruteForce-YearRange", searchWord, searchContent, KEYWORD.BRUTE_FORCE);
                 }
@@ -514,21 +534,10 @@ public class ChatBotSearchUtil {
                 TopDocs docs = searcher.search(query, MAX_HIT);
                 ScoreDoc[] hits = docs.scoreDocs;
 
-//                // Iterate Hits
-//                setStartTime();
-//                for (ScoreDoc hit : hits) {
-//                    org.apache.lucene.document.Document document = searcher.doc(hit.doc);
-//                    paperCount++;
-//                    xCount.add(paperCount);
-//                    yLuceneTimeSeries.add(getRunningTime());
-//                }
-//             display hits of docs
-//            System.out.println("Lucene search result:");
-//            System.out.println("Hits of " + searchWord + ": " + hits.length);
                 res = "The total counts in year " + searchYear + " with word: " + searchWord + " is " + hits.length + ". (response time:" + getRunningTime() + " ms)";
-//                System.out.println(res);
+
                 LuceneQA.put(fileType, searchContent);
-                historyResultMap.put(searchContent, res);
+                historyResultMap.put(searchContent+ " (by Lucene)", res);
                 if (!xCount.isEmpty() && !yLuceneTimeSeries.isEmpty()) {
                     plotChart.getAndSaveChart(fileType,
                             "LuceneSearch",
@@ -587,20 +596,12 @@ public class ChatBotSearchUtil {
                 TopDocs docs = searcher.search(query, MAX_HIT);
                 ScoreDoc[] hits = docs.scoreDocs;
 
-//                // Iterate Hits
-//                setStartTime();
-//                for (ScoreDoc hit : hits) {
-//                    org.apache.lucene.document.Document document = searcher.doc(hit.doc);
-//                    paperCount++;
-//                    xCount.add(paperCount);
-//                    yLuceneTimeSeries.add(getRunningTime());
-//                }
 
                 res = "Articles count from year " + startYear + " to year " + endYear + " with word: " + searchWord + " is " + hits.length + ". (response time:" + getRunningTime() + " ms)";
 //                System.out.println(res);
                 LuceneQA.put(fileType, searchContent);
 
-                historyResultMap.put(searchContent, res);
+                historyResultMap.put(searchContent + " (by Lucene)", res);
                 if (!xCount.isEmpty() && !yLuceneTimeSeries.isEmpty()) {
                     plotChart.getAndSaveChart(fileType,
                             "LuceneSearch-YearRange",
@@ -608,7 +609,6 @@ public class ChatBotSearchUtil {
                             searchContent,
                             KEYWORD.LUCENE_SEARCH);
                 }
-
                 return res;
 
             } else
@@ -641,8 +641,11 @@ public class ChatBotSearchUtil {
                     it.next();
                     paperCount++;
                 }
-                res = "The total counts in year " + searchYear + " with word: " + searchWord + " is " + paperCount + ". (response time:" + getRunningTime() + " ms)";
-                historyResultMap.put(searchContent, res);
+                double runTime = getRunningTime();
+                res = "The total counts in year " + searchYear + " with word: " + searchWord + " is " + paperCount + ". (response time:" + runTime + " ms)";
+                MongoQA.put(fileType, runTime);
+                MongoCount.put(fileType, paperCount);
+                historyResultMap.put(searchContent+ " (by MongoDB)", res);
                 return res;
             } else
                 return INVALID_YEAR_WARNING;
@@ -663,8 +666,11 @@ public class ChatBotSearchUtil {
                     it.next();
                     paperCount++;
                 }
-                res = "Articles count from year " + startYear + " to year " + endYear + " with word: " + searchWord + " is " + paperCount + ". (response time:" + getRunningTime() + " ms)";
-                historyResultMap.put(searchContent, res);
+                double runTime = getRunningTime();
+                res = "Articles count from year " + startYear + " to year " + endYear + " with word: " + searchWord + " is " + paperCount + ". (response time:" + runTime + " ms)";
+                MongoQA.put(fileType, runTime);
+                MongoCount.put(fileType, paperCount);
+                historyResultMap.put(searchContent+ " (by MongoDB)", res);
                 return res;
             } else {
                 return INVALID_YEAR_WARNING;
@@ -712,6 +718,24 @@ public class ChatBotSearchUtil {
             if (!xCount.isEmpty() && !yLuceneTimeSeries.isEmpty() && !yBruteForceTimeSeries.isEmpty()) {
                 plotChart.getAndSaveChart(fileType, "BF-Lucene-Compare", "", searchContent, KEYWORD.LUCENE_AND_BRUTE_FORCE);
             }
+        }
+    }
+
+    public static void generateDBComboPlot() throws IOException {
+        if (MongoCount.size() == 3 && MySQLCount.size() == 3) {
+            ArrayList<Integer> sizeCount = new ArrayList<>();
+            sizeCount.add(MongoCount.get("Small"));
+            sizeCount.add(MongoCount.get("Medium"));
+            sizeCount.add(MongoCount.get("Large"));
+            ArrayList<Double> MongoTime = new ArrayList<>();
+            ArrayList<Double> MySQLTime = new ArrayList<>();
+            MongoTime.add(MongoQA.get("Small"));
+            MongoTime.add(MongoQA.get("Medium"));
+            MongoTime.add(MongoQA.get("Large"));
+            MySQLTime.add(MySQLQA.get("Small"));
+            MySQLTime.add(MySQLQA.get("Medium"));
+            MySQLTime.add(MySQLQA.get("Large"));
+            plotChart.getAndSaveDBComboChart(sizeCount, MongoTime, MySQLTime);
         }
     }
 
