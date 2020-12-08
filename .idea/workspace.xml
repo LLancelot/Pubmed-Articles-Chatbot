@@ -532,10 +532,11 @@
     </state>
     <state x="-1820" y="-8" width="1720" height="844" key="com.intellij.history.integration.ui.views.RecentChangeDialog/-1920.-108.1920.1080/0.0.1440.864@-1920.-108.1920.1080" timestamp="1607101657545" />
     <state x="75" y="81" width="1290" height="684" key="com.intellij.history.integration.ui.views.RecentChangeDialog/0.0.1440.875@0.0.1440.875" timestamp="1607138811306" />
-    <state x="-1461" y="210" key="com.intellij.ide.util.TipDialog" timestamp="1607055392157">
-      <screen x="-1920" y="-108" width="1920" height="1080" />
+    <state x="337" y="281" key="com.intellij.ide.util.TipDialog" timestamp="1607404003287">
+      <screen x="0" y="23" width="1410" height="877" />
     </state>
     <state x="-1461" y="210" key="com.intellij.ide.util.TipDialog/-1920.-108.1920.1080/0.0.1440.864@-1920.-108.1920.1080" timestamp="1607055392157" />
+    <state x="337" y="281" key="com.intellij.ide.util.TipDialog/-1920.-85.1920.1057/0.23.1410.877@0.23.1410.877" timestamp="1607404003287" />
     <state x="344" y="272" key="com.intellij.ide.util.TipDialog/-1920.-85.1920.1057/0.23.1440.846@0.23.1440.846" timestamp="1606272274022" />
     <state x="-1461" y="226" key="com.intellij.ide.util.TipDialog/-1920.-85.1920.1057/0.23.1440.852@-1920.-85.1920.1057" timestamp="1606927342868" />
     <state x="-1417" y="-28" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1607272211024">

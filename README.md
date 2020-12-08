@@ -1,4 +1,4 @@
-## Pubmed Article Chatbot
+# Pubmed Article Chatbot
 
 This is the introduction of my final project, Pubmed articles chatbot. The chatbot uses BotUI as graphical user interface (GUI) and Spring Boot as back-end framework to handle all the search contents from chatbot web requests and make response messages back to chatbot web application. In this chatbot, you can search the numbers of paper with certain medical terms or fields in particular year or year range.
 
