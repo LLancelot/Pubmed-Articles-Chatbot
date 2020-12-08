@@ -10,7 +10,7 @@
         // Initial message
         botui.message.bot({
             size: 100,
-            content: 'This is my final project chatbot...'
+            content: 'Welcome! This is my final project chatbot...'
         }).then(init);
 
         function init() {
@@ -35,7 +35,7 @@
                 return botui.message.bot({
                     content: 'What do you want to search? (Begin with \'search\')' + '<br /><br />' +
                         'Please follow the searching rules below:<br />' +
-                        '- Query by particular year:<br /> Ex. search cancer in 2019<br />' +
+                        '- Query by particular year:<br /> Ex. search cancer in 2020<br />' +
                         '- Query by year range:<br /> Ex. search cancer from 2018 to 2020<br />'
                 })
             })
