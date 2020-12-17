@@ -12,6 +12,9 @@ public class App {
         // initialize various settings when start running the springbootapplication
         super();
         try {
+            /*
+                initialize the DB when app starts to run.
+            */
 //            ChatBotSearchBot.MySQLInitTable("Small");
 //            ChatBotSearchBot.MySQLInitTable("Medium");
 //            ChatBotSearchBot.MySQLInitTable("Large");
