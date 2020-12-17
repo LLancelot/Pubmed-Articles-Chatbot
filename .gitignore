@@ -5,3 +5,4 @@ src/main/resources/graphs/
 622-chatbot.iml
 # Project exclude paths
 /target/
+.idea/workspace.xml
